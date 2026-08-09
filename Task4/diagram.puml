@@ -1,0 +1,73 @@
+@startuml
+title Data & Analytics Platform — automation and runtime deployment
+left to right direction
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+legend right
+  |= Marker |= Lifecycle responsibility |
+  | <<Terraform>> | Provisioning of cloud infrastructure |
+  | <<CI/CD>> | Application deployment, configuration and migrations |
+  | Data pipeline | Creates and updates analytical tables |
+endlegend
+
+package "Yandex Cloud VPC <<Terraform>>" {
+  component "Public subnet" as public
+  component "Private subnet" as private
+  component "Bastion VM\n(public IP)" as bastion <<Terraform>>
+  component "Network Load Balancer\n(public entry point)" as nlb <<Terraform>>
+
+  package "Portal zone\nportal-sg: LB -> UI 80" {
+    node "Portal UI VM" as portal_ui_vm <<Terraform>>
+    node "Portal Backend VM" as portal_backend_vm <<Terraform>>
+  }
+
+  package "Data zone\ndata-sg: private service traffic" {
+    package "Dremio infrastructure <<Terraform>>" {
+      node "Coordinator VM" as dremio_coordinator
+      node "Executor VMs (1..N)" as dremio_executors
+    }
+    package "Spark infrastructure <<Terraform>>" {
+      node "Spark Master VM" as spark_master
+      node "Spark Worker VMs (1..N)" as spark_workers
+    }
+    node "Airflow VM" as airflow_vm <<Terraform>>
+  }
+
+  database "Managed PostgreSQL\nMetadata DB\ndb-sg: Backend -> 6432" as postgres <<Terraform>>
+  database "S3-compatible Object Storage\nLakehouse: Parquet + Iceberg tables" as lakehouse <<Terraform>>
+  component "Service account and\nS3 access key" as service_account <<Terraform>>
+  component "Lockbox secret container" as lockbox <<Terraform>>
+}
+
+component "Self-Service Portal UI" as portal_ui <<CI/CD>>
+component "Analytics Portal Backend" as portal_backend <<CI/CD>>
+component "Dremio Query Engine" as dremio <<CI/CD>>
+component "Apache Airflow DAGs" as airflow <<CI/CD>>
+component "Apache Spark Cluster runtime\nand domain jobs" as spark <<CI/CD>>
+component "DB schema migrations\nand application configuration" as migrations <<CI/CD>>
+
+bastion --> public
+nlb --> public
+public --> private
+nlb --> portal_ui_vm : HTTP / health check
+portal_ui_vm --> portal_ui
+portal_backend_vm --> portal_backend
+dremio_coordinator --> dremio
+dremio_executors --> dremio
+airflow_vm --> airflow
+spark_master --> spark
+spark_workers --> spark
+
+portal_ui --> portal_backend : HTTPS/API
+portal_backend --> dremio : SQL queries
+portal_backend --> postgres : metadata
+airflow --> spark : submit / orchestrate jobs
+spark --> lakehouse : Data pipeline\nwrite Iceberg tables
+dremio --> lakehouse : read Data Products
+migrations --> postgres
+service_account --> lakehouse : object access
+lockbox ..> portal_backend : runtime secrets
+lockbox ..> dremio : S3 credentials
+lockbox ..> airflow : runtime secrets
+@enduml

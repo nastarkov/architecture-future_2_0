@@ -1,0 +1,8 @@
+# Local Terraform state and provider cache can contain credentials.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+
+# Local backup and generated preview files.
+*.bkp
+Task4/diagram.png
