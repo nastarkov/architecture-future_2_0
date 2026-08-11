@@ -1,0 +1,59 @@
+@startuml
+
+title Future 2.0 — Data Flow by Business Scenarios
+
+actor "Врач" as Doctor
+actor "BI-аналитик" as Analyst
+
+participant "Medical Services" as Medical
+participant "AI Services" as AI
+participant "Medical Data Product" as MedicalDP
+
+participant "New Partner Services" as Partner
+participant "Partner Data Product" as PartnerDP
+
+database "Analytical Data Lakehouse" as Lakehouse
+participant "Analytical Query Engine (Dremio)" as Dremio
+
+participant "Self-Service Portal (UI)" as Portal
+participant "Analytics Portal Backend" as Backend
+database "Analytics Metadata Database" as MetadataDB
+
+
+== Сценарий 1. Использование ИИ для анализа медицинских данных ==
+
+Doctor -> Medical: Передача медицинских данных пациента
+Medical -> AI: Медицинские данные и запрос на анализ
+AI -> AI: Обработка данных ML-моделью
+AI --> Medical: Результат анализа и рекомендации
+Medical --> Doctor: Результат анализа
+
+
+== Сценарий 2. Публикация аналитических данных медицинского домена ==
+
+Medical -> MedicalDP: Передача разрешённых для аналитики данных
+MedicalDP -> MedicalDP: Проверка качества и преобразование данных
+MedicalDP -> Lakehouse: Публикация Medical Data Product
+
+
+== Сценарий 3. Подключение нового бизнес-домена ==
+
+Partner -> PartnerDP: Передача данных нового домена
+PartnerDP -> PartnerDP: Проверка качества и преобразование данных
+PartnerDP -> Lakehouse: Публикация Partner Data Product
+
+
+== Сценарий 4. Построение отчёта ==
+
+Analyst -> Portal: Выбор данных, метрик, фильтров и параметров отчёта
+Portal -> Backend: Запрос на построение отчёта
+Backend -> MetadataDB: Получение определения и настроек отчёта
+MetadataDB --> Backend: Метаданные отчёта
+Backend -> Dremio: Аналитический запрос
+Dremio -> Lakehouse: Чтение необходимых Data Products
+Lakehouse --> Dremio: Аналитические данные
+Dremio --> Backend: Результат запроса
+Backend --> Portal: Данные сформированного отчёта
+Portal --> Analyst: Отображение отчёта
+
+@enduml
